@@ -217,6 +217,13 @@ AUTH_PROXY_CREATE_UNKNOWN_USER = env.bool('AUTH_PROXY_CREATE_UNKNOWN_USER', Fals
 AUTH_PROXY_USER_EMAIL_HEADER = env.str('AUTH_PROXY_USER_EMAIL_HEADER', '')
 AUTH_PROXY_USER_NAME_HEADER = env.str('AUTH_PROXY_USER_NAME_HEADER', '')
 
+# Cloudflare Access (fit.bobsabayesian.io), see wger/dynamic_coach/access.py
+CF_ACCESS_ENABLED = env.bool('CF_ACCESS_ENABLED', False)
+CF_ACCESS_TEAM_DOMAIN = env.str('CF_ACCESS_TEAM_DOMAIN', '')
+CF_ACCESS_AUD = env.str('CF_ACCESS_AUD', '')
+CF_ACCESS_ACCESS_FILE = env.str('CF_ACCESS_ACCESS_FILE', str(BASE_DIR.parent / 'access.json'))
+CF_ACCESS_EXEMPT_PATHS = env.list('CF_ACCESS_EXEMPT_PATHS', default=[])
+
 # Cache
 if os.environ.get('DJANGO_CACHE_BACKEND'):
     CACHES = {

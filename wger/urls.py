@@ -316,6 +316,7 @@ urlpatterns += [
         exercises_api_views.ExerciseSubmissionViewSet.as_view(),
         name='exercise-submission',
     ),
+    path('api/v2/coach/', include('wger.dynamic_coach.api.urls')),
     path('api/v2/check-language/', core_api_views.check_language, name='check-language'),
     path(
         'api/v2/userprofile/',

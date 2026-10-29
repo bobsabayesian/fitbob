@@ -87,6 +87,7 @@ INSTALLED_APPS = [
     'wger.gallery',
     'wger.measurements',
     'wger.trophies',
+    'wger.dynamic_coach',
 
     # reCaptcha support, see https://github.com/praekelt/django-recaptcha
     'django_recaptcha',
@@ -147,6 +148,9 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     # Prometheus
     'django_prometheus.middleware.PrometheusBeforeMiddleware',
+
+    # Zero trust gate (inert unless CF_ACCESS_ENABLED)
+    'wger.dynamic_coach.access.CloudflareAccessMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

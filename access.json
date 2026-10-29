@@ -1,0 +1,6 @@
+{
+  "_comment": "Second, independent allowlist behind Cloudflare Access. Empty = nobody gets in.",
+  "allowed_emails": [],
+  "allowed_domains": [],
+  "allowed_service_tokens": []
+}
