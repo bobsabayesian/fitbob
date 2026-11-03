@@ -28,6 +28,10 @@ from wger.core.models import UserProfile
 from wger.manager.api.consts import BASE_CONFIG_FIELDS
 from wger.manager.api.fields import DecimalOrIntegerField
 from wger.manager.api.validators import validate_requirements
+from wger.manager.interval_timer import (
+    INTERVAL_DAY_TYPES,
+    normalize_config,
+)
 from wger.manager.models import (
     Day,
     MaxRepetitionsConfig,
@@ -101,6 +105,20 @@ class DaySerializer(serializers.ModelSerializer):
             'type',
             'config',
         )
+
+    def validate(self, attrs):
+        """
+        Interval day types (tabata, hiit, emom) must carry a valid timer config.
+
+        The config is normalized so defaults are always stored explicitly.
+        """
+        day_type = attrs.get('type', getattr(self.instance, 'type', None))
+        if day_type in INTERVAL_DAY_TYPES and ('config' in attrs or self.instance is None):
+            try:
+                attrs['config'] = normalize_config(attrs.get('config'))
+            except DjangoValidationError as e:
+                raise serializers.ValidationError({'config': e.messages})
+        return attrs
 
 
 class BaseConfigSerializer(serializers.ModelSerializer):

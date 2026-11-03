@@ -18,12 +18,15 @@
 # Django
 from django.conf import settings
 from django.core.cache import cache
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
 
 # Third Party
 from drf_spectacular.utils import extend_schema
-from rest_framework import viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 # wger
@@ -33,6 +36,11 @@ from wger.manager.api.filtersets import (
     WorkoutSessionFilterSet,
 )
 from wger.manager.api.permissions import RoutinePermission
+from wger.manager.interval_timer import (
+    INTERVAL_DAY_TYPES,
+    PRESETS,
+    build_plan,
+)
 from wger.manager.api.serializers import (
     DaySerializer,
     LogDisplaySerializer,
@@ -86,6 +94,14 @@ def request_user_or_trainer_q(request):
     if trainer_identity_pk:
         return Q(user=request.user) | Q(user_id=trainer_identity_pk)
     return Q(user=request.user)
+
+
+def build_plan_or_400(config):
+    """Build an interval plan, translating validation errors into a 400 response"""
+    try:
+        return build_plan(config)
+    except DjangoValidationError as e:
+        raise DRFValidationError({'config': e.messages})
 
 
 class RoutineViewSet(viewsets.ModelViewSet):
@@ -362,6 +378,45 @@ class RoutineDayViewSet(WgerOwnerObjectModelViewSet):
         Return objects to check for ownership permission
         """
         return [(Routine, 'routine')]
+
+    @extend_schema(responses=dict, description='Timed phases for an interval (tabata, ...) day')
+    @action(detail=True, methods=['get'], url_path='interval-plan')
+    def interval_plan(self, request, pk):
+        """
+        Return the expanded list of timed phases for an interval day
+        """
+        day = self.get_object()
+        if day.type not in INTERVAL_DAY_TYPES:
+            return Response(
+                {'detail': 'This day is not an interval day (tabata, hiit, emom)'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(build_plan_or_400(day.config))
+
+    @extend_schema(responses=dict, description='Ready-made interval timer configurations')
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='interval-presets',
+        permission_classes=[IsAuthenticated],
+    )
+    def interval_presets(self, request):
+        return Response(PRESETS)
+
+    @extend_schema(
+        request=dict, responses=dict, description='Expand an interval config without saving'
+    )
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='interval-plan',
+        permission_classes=[IsAuthenticated],
+    )
+    def interval_plan_preview(self, request):
+        """
+        Stateless helper for a quick-start timer: config in, phases out
+        """
+        return Response(build_plan_or_400(request.data))
 
 
 class SlotViewSet(WgerOwnerObjectModelViewSet):
