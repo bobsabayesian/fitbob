@@ -178,3 +178,14 @@ class IntervalApiTestCase(WgerTestCase):
             self.client.get(reverse('day-interval-presets')).status_code,
             status.HTTP_403_FORBIDDEN,
         )
+
+
+class IntervalTimerPageTestCase(WgerTestCase):
+    def test_page_requires_login(self):
+        response = self.client.get(reverse('manager:routine:timer'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_page_renders_for_logged_in_user(self):
+        self.user_login()
+        response = self.client.get(reverse('manager:routine:timer'))
+        self.assertEqual(response.status_code, 200)

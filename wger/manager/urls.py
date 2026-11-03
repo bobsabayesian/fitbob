@@ -69,6 +69,11 @@ patterns_routine = [
         name='add',
     ),
     path(
+        'timer',
+        ReactView.as_view(login_required=True),
+        name='timer',
+    ),
+    path(
         '<int:pk>/edit',
         ReactView.as_view(login_required=True),
         name='edit',
