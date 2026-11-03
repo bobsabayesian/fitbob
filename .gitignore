@@ -93,3 +93,6 @@ venv-wger
 
 # macOS
 .DS_Store
+
+# fitbob: locally built react-components tarballs
+/extras/docker/vendor/*.tgz

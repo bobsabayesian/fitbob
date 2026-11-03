@@ -57,13 +57,17 @@ RUN pip3 wheel \
 # For the react-components npm package, we fetch it manually, extract it and move
 # it into node_modules to keep the size of the docker image small(er). Yes, this
 # is hacky and there's probably a better way.
+#
+# fitbob: if a locally built react-components tarball exists in extras/docker/vendor
+# (see extras/scripts/build-react.sh) it is used instead of the npm release.
 COPY package.json package-lock.json ./
 COPY wger/core/static /root/src/wger/core/static
+COPY extras/docker/vendor /root/src/vendor
 RUN npm ci --production \
     && npm run build:css:sass \
     && PACKAGE_NAME="@wger-project/react-components" \
     && PACKAGE_VERSION=$(node -p "require('./package.json').devDependencies['$PACKAGE_NAME']") \
-    && TARBALL=$(npm pack ${PACKAGE_NAME}@${PACKAGE_VERSION}) \
+    && if ls vendor/*.tgz >/dev/null 2>&1; then TARBALL=$(ls vendor/*.tgz | head -n 1); else TARBALL=$(npm pack ${PACKAGE_NAME}@${PACKAGE_VERSION}); fi \
     && mkdir -p node_modules/${PACKAGE_NAME} \
     && tar -xzf ${TARBALL} -C node_modules/${PACKAGE_NAME} --strip-components=1
 
