@@ -108,3 +108,10 @@ on translations/variations in newer versions; verify before writing the filter.
 1. Can the React fork (`wger-project/react`) be added to the session so UI work can start?
 2. Is the Pi already running wger, or are we setting that up from scratch (Phase 0)?
 3. Tabata: want presets (20/10 x 8) plus fully custom intervals, and sound cues? Any need for the screen to stay awake / run on a locked phone?
+
+## Status: generate workout UI
+
+- React screen `src/components/Coach/screens/GenerateWorkout.tsx` in the `bobsabayesian/react` fork, branch `feature/generate-workout` (built on `feature/interval-timer`). Route `/routine/generate` is served by Django (`manager:routine:generate`) with a nav link.
+- Flow: Generate previews a session (never saves), Shuffle re-rolls, Save repeats the same session via the `seed` the API returns and creates the routine.
+- Inline "Add training space" dialog, since a new user has no equipment profile.
+- Not yet verified in a browser against a running backend, and not yet in a built `react-components` tarball.
