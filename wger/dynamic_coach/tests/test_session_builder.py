@@ -211,6 +211,27 @@ class SessionBuilderTestCase(GeneratorBase):
         self.assertEqual(bench.weight % 5, 0)
 
 
+class FamiliarityTestCase(GeneratorBase):
+    def test_prefers_what_you_actually_do(self):
+        # pushup and dip are poorer fits (fewer muscles) but heavily logged
+        self.log_sets(self.pushup, 40, 0, 10, hours_ago=24 * 30)
+        self.log_sets(self.pushdown, 40, 20, 10, hours_ago=24 * 30)
+        picks = set()
+        for seed in range(15):
+            _, planned = build_session(self.user, 30, 'push', rng=random.Random(seed))
+            picks |= set(self.names(planned))
+        _, planned = build_session(self.user, 30, 'push', rng=random.Random(1))
+        names = self.names(planned)
+        self.assertIn('Push-up', names)
+        self.assertIn('Dip', names)
+
+    def test_old_history_still_prescribes_a_weight(self):
+        self.log_sets(self.bench, 3, 80, 8, hours_ago=24 * 200)
+        _, planned = build_session(self.user, 45, 'push', rng=self.rng)
+        bench = next(p for p in planned if p.name == 'Bench press')
+        self.assertEqual(bench.weight, Decimal('80.0'))
+
+
 class LibraryTestCase(GeneratorBase):
     def test_empty_library_means_whole_catalogue(self):
         _, planned = build_session(self.user, 60, 'push', rng=self.rng)

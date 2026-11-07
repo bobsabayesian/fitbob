@@ -22,6 +22,7 @@ user's history. Optionally persists the result as a native wger ``Routine``.
 """
 
 # Standard Library
+import math
 import random
 from dataclasses import dataclass
 from datetime import (
@@ -33,6 +34,8 @@ from typing import Optional
 
 # Django
 from django.db import transaction
+from django.db.models import Count
+from django.utils import timezone
 
 # wger
 from wger.dynamic_coach.models import (
@@ -52,6 +55,7 @@ from wger.manager.consts import (
 )
 from wger.manager.models import (
     Day,
+    WorkoutLog,
     RepetitionsConfig,
     Routine,
     SetsConfig,
@@ -214,7 +218,31 @@ def _compound_size(exercise) -> int:
     return len(exercise.muscles.all()) + len(exercise.muscles_secondary.all())
 
 
-def select_exercises(pool, split_key, freshness_by_muscle, count, rng) -> list[Exercise]:
+FAMILIARITY_DAYS = 365
+FAMILIARITY_WEIGHT = 1.5
+FAMILIARITY_FULL_AT = 50
+"""Sets logged in the window at which an exercise counts as fully familiar"""
+
+
+def familiarity(user, now=None) -> dict[int, int]:
+    """Sets the user logged per exercise in the last year"""
+    since = (now or timezone.now()) - timedelta(days=FAMILIARITY_DAYS)
+    rows = (
+        WorkoutLog.objects.filter(user=user, date__gte=since)
+        .values('exercise')
+        .annotate(n=Count('id'))
+    )
+    return {row['exercise']: row['n'] for row in rows}
+
+
+def familiarity_bonus(sets: int) -> float:
+    """0 for an exercise never logged, up to FAMILIARITY_WEIGHT for one done a lot"""
+    return FAMILIARITY_WEIGHT * min(1.0, math.log1p(sets) / math.log1p(FAMILIARITY_FULL_AT))
+
+
+def select_exercises(
+    pool, split_key, freshness_by_muscle, count, rng, familiar=None
+) -> list[Exercise]:
     """
     Greedy slotting. Early slots favour compound lifts on fresh muscles, later
     slots favour isolation. Exercises that only hit already-covered muscles, or
@@ -237,6 +265,7 @@ def select_exercises(pool, split_key, freshness_by_muscle, count, rng) -> list[E
             size = min(_compound_size(ex), 4) / 4
             shape = size if tier < 3 else 1 - size
             value = 2.0 * shape + 1.0 * fresh + rng.random() * 0.5
+            value += familiarity_bonus((familiar or {}).get(ex.pk, 0))
             if primary <= covered:
                 value -= 0.75
             if ex.variation_group and ex.variation_group in used_variations:
@@ -297,7 +326,9 @@ def build_session(
 
     unit = weight_unit_of(user)
     increment = rounding_increment(preferences, unit)
-    chosen = select_exercises(pool, split_key, freshness, exercise_count(duration_min), rng)
+    chosen = select_exercises(
+        pool, split_key, freshness, exercise_count(duration_min), rng, familiarity(user)
+    )
 
     planned = []
     for slot, exercise in enumerate(chosen, start=1):

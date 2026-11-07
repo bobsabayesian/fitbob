@@ -41,7 +41,7 @@ from wger.manager.consts import (
 from wger.manager.models import WorkoutLog
 
 
-DEFAULT_LOOKBACK_DAYS = 90
+DEFAULT_LOOKBACK_DAYS = 365
 DEFAULT_INCREMENT_KG = Decimal('2.5')
 COLD_START_REPS = 10
 KG_PER_LB = Decimal('0.45359237')

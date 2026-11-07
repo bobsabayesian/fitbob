@@ -105,7 +105,7 @@ class PrescribeTestCase(WgerTestCase):
         self.assertAlmostEqual(float(best_e1rm(self.user(), 1)), 45.359 * (1 + 5 / 30), places=2)
 
     def test_ignores_old_other_user_and_high_reps(self):
-        self.log(200, 5, days_ago=120)
+        self.log(200, 5, days_ago=400)
         self.log(200, 5, user_id=2)
         self.assertEqual(WorkoutLog.objects.filter(user_id=2).count(), 1)
         self.log(50, 30)

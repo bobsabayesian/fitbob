@@ -9,7 +9,9 @@ Usage:
     extras/scripts/fitbod_mapping.py WorkoutExport.csv wger_names.tsv > mapping.csv
 
 Columns of the output:
-    action        map | create | skip   (edit this)
+    action        map | create | skip   (edit this). Only exact name matches are
+                  suggested as map; everything else is create, with the closest
+                  existing exercises listed in alternatives
     fitbod_name   exercise name in the export
     sets          number of sets in the export (review the big ones first)
     wger_id       wger exercise id when action is map (edit this)
@@ -128,7 +130,8 @@ def main(export_path, names_path):
         if sorted(mine) == sorted(tokens(top[2])):
             confidence, action = 'exact', 'map'
         elif top[0] >= 0.8:
-            confidence, action = 'likely', 'map'
+            # close, but "Barbell Bench Press" once matched "Pin Bench Press BB": a person decides
+            confidence, action = 'likely', 'create'
         elif top[0] >= 0.6:
             confidence, action = 'weak', 'create'
         else:
