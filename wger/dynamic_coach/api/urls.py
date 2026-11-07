@@ -13,12 +13,24 @@
 # GNU General Public License for more details.
 
 # Django
-from django.urls import path
+from django.urls import (
+    include,
+    path,
+)
+
+# Third Party
+from rest_framework import routers
 
 # wger
 from wger.dynamic_coach.api import views
 
 
+router = routers.DefaultRouter()
+router.register(r'equipment-profile', views.EquipmentProfileViewSet, basename='equipment-profile')
+
 urlpatterns = [
     path('muscle-freshness/', views.MuscleFreshnessView.as_view(), name='muscle-freshness'),
+    path('preferences/', views.GeneratorPreferencesView.as_view(), name='generator-preferences'),
+    path('generate-workout/', views.GenerateWorkoutView.as_view(), name='generate-workout'),
+    path('', include(router.urls)),
 ]

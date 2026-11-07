@@ -16,11 +16,31 @@
 from django.utils import timezone
 
 # Third Party
+from rest_framework import (
+    generics,
+    status,
+    viewsets,
+)
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 # wger
+from wger.dynamic_coach.api.serializers import (
+    EquipmentProfileSerializer,
+    GenerateWorkoutSerializer,
+    GeneratorPreferencesSerializer,
+)
+from wger.dynamic_coach.models import (
+    EquipmentProfile,
+    UserGeneratorPreferences,
+)
+from wger.dynamic_coach.services.session_builder import (
+    GeneratorError,
+    build_session,
+    save_routine,
+)
 from wger.dynamic_coach.services.recovery_engine import muscle_freshness
 
 
@@ -32,3 +52,74 @@ class MuscleFreshnessView(APIView):
     def get(self, request):
         now = timezone.now()
         return Response({'calculated_at': now, 'muscles': muscle_freshness(request.user, now)})
+
+
+class EquipmentProfileViewSet(viewsets.ModelViewSet):
+    """The user's own equipment profiles"""
+
+    serializer_class = EquipmentProfileSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return EquipmentProfile.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class GeneratorPreferencesView(generics.RetrieveUpdateAPIView):
+    """The user's generator preferences, created with defaults on first access"""
+
+    serializer_class = GeneratorPreferencesSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self):
+        return UserGeneratorPreferences.objects.get_or_create(user=self.request.user)[0]
+
+
+class GenerateWorkoutView(APIView):
+    """Generates a strength session, optionally saving it as a wger routine"""
+
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        serializer = GenerateWorkoutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        try:
+            split_key, planned = build_session(
+                request.user,
+                duration_min=data.get('duration_min'),
+                split=data['split'],
+                equipment_profile_id=data.get('equipment_profile_id'),
+            )
+        except GeneratorError as error:
+            raise ValidationError({'detail': str(error)})
+
+        routine_id = day_id = None
+        if data['save_as_routine']:
+            name = data.get('routine_name') or f'Dynamic {split_key.replace("_", " ")}'
+            routine, day = save_routine(request.user, planned, split_key, name)
+            routine_id, day_id = routine.pk, day.pk
+
+        return Response(
+            {
+                'routine_id': routine_id,
+                'day_id': day_id,
+                'split': split_key,
+                'exercises': [
+                    {
+                        'exercise_id': p.exercise.pk,
+                        'name': p.name,
+                        'slot': p.slot,
+                        'sets': p.sets,
+                        'target_reps': p.target_reps,
+                        'prescribed_weight_kg': p.weight,
+                        'e1rm_basis_kg': round(p.e1rm, 1) if p.e1rm is not None else None,
+                    }
+                    for p in planned
+                ],
+            },
+            status=status.HTTP_201_CREATED,
+        )
