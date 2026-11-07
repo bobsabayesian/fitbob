@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('dynamic_coach', '0002_rounding_increment_by_unit'),
-        ('exercises', '0041_library_entry'),
+        ('exercises', '0040_alter_exercise_license_author_and_more'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
