@@ -69,6 +69,8 @@ Full original spec: [docs/dynamic_coach_spec.md](docs/dynamic_coach_spec.md) (ne
 | 2: Generator | equipment profiles, preferences, `generate-workout` | New. Depends on Sprint 1. |
 | 3: Sweat Deck | deck models, draw/complete, back-propagation to fatigue | New. Depends on Sprint 1. |
 
+**Spec formula fix:** the spec's `W = e1RM * (1 - R/30)` is not the inverse of Epley and under-prescribes (its own example gives 75 kg, not 82.5). `progression` uses the true inverse `e1RM / (1 + R/30)`.
+
 **Spec drift to fix before building:** the spec targets old wger names (`core.Exercise`, `core.Equipment`, `core.Muscle`,
 `Day`/`Set`/`Setting`). Current wger has these in `exercises` (`Exercise`/`Equipment`/`Muscle`) and `manager`
 (`Routine`/`Day`/`Slot`/`SlotEntry`), so the generator must emit Slots/SlotEntries. Equipment-per-exercise is
@@ -76,7 +78,7 @@ on translations/variations in newer versions; verify before writing the filter.
 
 ### Suggested priority
 
-1. Phase 0 + shared `progression` service (Epley e1RM, rounding, next-weight prescription). Feeds Phase 3 and the generator.
+1. ~~Phase 0 + shared `progression` service~~ **Done**: `wger/progression/services.py` (Epley/Brzycki e1RM, inverse, rounding, `prescribe`). Feeds Phase 3 and the generator. Run tests with `DJANGO_SETTINGS_MODULE=settings.ci uv run python manage.py test wger.progression`.
 2. Phase 1 UI (timer screen). Backend is done, so this is the quickest visible win.
 3. Spec Sprint 1: recovery engine + `muscle-freshness`. Small, pure math, unit-testable, and the foundation for the generator and deck.
 4. Phase 3 progression rules and analytics (reuses step 1).

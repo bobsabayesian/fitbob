@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     'wger.exercises',
     'wger.gym',
     'wger.manager',
+    'wger.progression',
     'wger.nutrition',
     'wger.software',
     'wger.utils',
