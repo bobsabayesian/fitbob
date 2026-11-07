@@ -57,6 +57,34 @@ web UI is a separate React app and the mobile app is Flutter, so every feature b
 - Token-budget controls (summarise old history), and prompt templates the user can edit.
 - Depends on phases 2 and 3 for non-traditional activities and progression data.
 
+## Phase 5: Dynamic Coach (original spec)
+
+Full original spec: [docs/dynamic_coach_spec.md](docs/dynamic_coach_spec.md) (new app `wger/dynamic_coach/`, API under
+`/api/v2/coach/`). Its four sprints map onto the phases above:
+
+| Spec sprint | Content | Overlap with existing phases |
+|---|---|---|
+| 4: Tabata | timeline endpoint | **Done** in Phase 1 (`manager/interval_timer.py`). Skip `TabataProtocol` model unless saved presets are wanted. |
+| 1: Engines | recovery decay, Epley e1RM + rounding, `muscle-freshness` | e1RM/rounding shared with Phase 3 (build once, in `progression`). Freshness is new. |
+| 2: Generator | equipment profiles, preferences, `generate-workout` | New. Depends on Sprint 1. |
+| 3: Sweat Deck | deck models, draw/complete, back-propagation to fatigue | New. Depends on Sprint 1. |
+
+**Spec drift to fix before building:** the spec targets old wger names (`core.Exercise`, `core.Equipment`, `core.Muscle`,
+`Day`/`Set`/`Setting`). Current wger has these in `exercises` (`Exercise`/`Equipment`/`Muscle`) and `manager`
+(`Routine`/`Day`/`Slot`/`SlotEntry`), so the generator must emit Slots/SlotEntries. Equipment-per-exercise is
+on translations/variations in newer versions; verify before writing the filter.
+
+### Suggested priority
+
+1. Phase 0 + shared `progression` service (Epley e1RM, rounding, next-weight prescription). Feeds Phase 3 and the generator.
+2. Phase 1 UI (timer screen). Backend is done, so this is the quickest visible win.
+3. Spec Sprint 1: recovery engine + `muscle-freshness`. Small, pure math, unit-testable, and the foundation for the generator and deck.
+4. Phase 3 progression rules and analytics (reuses step 1).
+5. Spec Sprint 2: generator. Biggest value, biggest risk; do after 1-4 so it has real data and logs.
+6. Phase 2 non-traditional activity logging (BJJ etc.). Independent; slot in whenever you start training it.
+7. Spec Sprint 3: Sweat Deck. Fun but lowest value; needs the freshness model.
+8. Phase 4 LLM export/import last, since it consumes everything above. It may also make the generator partly redundant.
+
 ## Cross-cutting
 
 - Tests per feature (existing test layout: `wger/<app>/tests`), OpenAPI docs, CHANGELOG entries.
