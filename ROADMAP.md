@@ -80,7 +80,7 @@ on translations/variations in newer versions; verify before writing the filter.
 
 1. ~~Phase 0 + shared `progression` service~~ **Done**: `wger/progression/services.py` (Epley/Brzycki e1RM, inverse, rounding, `prescribe`). Feeds Phase 3 and the generator. Run tests with `DJANGO_SETTINGS_MODULE=settings.ci uv run python manage.py test wger.progression`.
 2. Phase 1 UI (timer screen). Backend is done, so this is the quickest visible win.
-3. Spec Sprint 1: recovery engine + `muscle-freshness`. Small, pure math, unit-testable, and the foundation for the generator and deck.
+3. ~~Spec Sprint 1: recovery engine + `muscle-freshness`~~ **Done**: `wger/dynamic_coach/services/recovery_engine.py` and `GET /api/v2/coach/muscle-freshness/`. `muscle_freshness(user, extra_events=...)` accepts synthetic `FatigueEvent`s for the deck. Equipment/preferences models from Sprint 1 are still open and belong with the generator.
 4. Phase 3 progression rules and analytics (reuses step 1).
 5. Spec Sprint 2: generator. Biggest value, biggest risk; do after 1-4 so it has real data and logs.
 6. Phase 2 non-traditional activity logging (BJJ etc.). Independent; slot in whenever you start training it.
