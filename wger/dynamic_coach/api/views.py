@@ -12,6 +12,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+# Standard Library
+import random
+
 # Django
 from django.utils import timezone
 
@@ -87,12 +90,14 @@ class GenerateWorkoutView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        seed = data['seed'] if 'seed' in data else random.randrange(2**31)
         try:
             split_key, planned = build_session(
                 request.user,
                 duration_min=data.get('duration_min'),
                 split=data['split'],
                 equipment_profile_id=data.get('equipment_profile_id'),
+                rng=random.Random(seed),
             )
         except GeneratorError as error:
             raise ValidationError({'detail': str(error)})
@@ -108,6 +113,7 @@ class GenerateWorkoutView(APIView):
                 'routine_id': routine_id,
                 'day_id': day_id,
                 'split': split_key,
+                'seed': seed,
                 'exercises': [
                     {
                         'exercise_id': p.exercise.pk,

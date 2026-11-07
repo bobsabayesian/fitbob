@@ -269,6 +269,18 @@ class GeneratorApiTestCase(GeneratorBase):
         self.assertEqual(Routine.objects.get(pk=body['routine_id']).name, 'Dynamic Push')
         self.assertIsNotNone(body['day_id'])
 
+    def test_seed_reproduces_the_session(self):
+        first = self.client.post(
+            self.url, {'duration_min': 60, 'split': 'push'}, content_type='application/json'
+        ).json()
+        again = self.client.post(
+            self.url,
+            {'duration_min': 60, 'split': 'push', 'seed': first['seed']},
+            content_type='application/json',
+        ).json()
+        self.assertEqual(first['exercises'], again['exercises'])
+        self.assertEqual(first['seed'], again['seed'])
+
     def test_validation(self):
         for payload in ({'split': 'arms'}, {'duration_min': 3}, {'routine_name': 'x' * 30}):
             response = self.client.post(self.url, payload, content_type='application/json')
@@ -342,3 +354,14 @@ class ProfileAndPreferencesApiTestCase(GeneratorBase):
         for payload in ({'default_equipment_profile': other.pk}, {'default_duration_min': 1000}):
             response = self.client.patch(url, payload, content_type='application/json')
             self.assertEqual(response.status_code, 400, payload)
+
+
+class GeneratePageTestCase(WgerTestCase):
+    def test_page_requires_login(self):
+        response = self.client.get(reverse('manager:routine:generate'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_page_renders_for_logged_in_user(self):
+        self.user_login()
+        response = self.client.get(reverse('manager:routine:generate'))
+        self.assertEqual(response.status_code, 200)

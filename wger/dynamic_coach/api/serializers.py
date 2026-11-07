@@ -73,4 +73,6 @@ class GenerateWorkoutSerializer(serializers.Serializer):
     equipment_profile_id = serializers.IntegerField(required=False)
     split = serializers.ChoiceField(choices=SPLIT_CHOICES, required=False, default='auto')
     save_as_routine = serializers.BooleanField(required=False, default=False)
+    seed = serializers.IntegerField(required=False, min_value=0, max_value=2**31 - 1)
+    """Repeats a previous result: same seed and same data give the same session"""
     routine_name = serializers.CharField(required=False, allow_blank=True, max_length=25)

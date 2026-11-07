@@ -165,6 +165,7 @@ def candidate_pool(split_key, equipment_ids, bodyweight_ids, excluded_exercises,
         .select_related('category')
         .prefetch_related('muscles', 'muscles_secondary', 'equipment')
         .distinct()
+        .order_by('pk')
     )
     for exercise in queryset:
         if {e.pk for e in exercise.equipment.all()} - allowed:
