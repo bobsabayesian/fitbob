@@ -34,6 +34,7 @@ from django.utils import timezone
 from wger.manager.consts import (
     REP_UNIT_REPETITIONS,
     WEIGHT_UNIT_KG,
+    WEIGHT_UNIT_LB,
 )
 from wger.manager.models import WorkoutLog
 from wger.progression.services import (
@@ -41,6 +42,7 @@ from wger.progression.services import (
     MAX_RELIABLE_REPS,
     epley_e1rm,
     round_to_increment,
+    to_kg,
 )
 
 
@@ -56,22 +58,22 @@ class SetData:
 
 
 def load_sets(user, exercise_id, days=180, now=None) -> list[SetData]:
-    """Usable kg/repetition sets of the exercise, oldest first"""
+    """Usable kg/lb repetition sets of the exercise (weights in kg), oldest first"""
     since = (now or timezone.now()) - timedelta(days=days)
     rows = (
         WorkoutLog.objects.filter(
             user=user,
             exercise_id=exercise_id,
             date__gte=since,
-            weight_unit_id=WEIGHT_UNIT_KG,
+            weight_unit_id__in=(WEIGHT_UNIT_KG, WEIGHT_UNIT_LB),
             repetitions_unit_id=REP_UNIT_REPETITIONS,
             weight__gt=0,
             repetitions__gt=0,
         )
         .order_by('date')
-        .values_list('date', 'weight', 'repetitions')
+        .values_list('date', 'weight', 'repetitions', 'weight_unit_id')
     )
-    return [SetData(d, Decimal(w), int(r)) for d, w, r in rows]
+    return [SetData(d, to_kg(w, unit), int(r)) for d, w, r, unit in rows]
 
 
 def group_sessions(sets: list[SetData]) -> list[list[SetData]]:

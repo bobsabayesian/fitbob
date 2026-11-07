@@ -54,7 +54,10 @@ class UserGeneratorPreferences(models.Model):
     )
     excluded_exercises = models.ManyToManyField(Exercise, blank=True, related_name='+')
     excluded_muscles = models.ManyToManyField(Muscle, blank=True, related_name='+')
-    rounding_increment_kg = models.DecimalField(max_digits=4, decimal_places=2, default=2.50)
+    rounding_increment = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True, default=None
+    )
+    """Smallest load step in the user's weight unit. None means 2.5 kg or 5 lb."""
 
     def __str__(self):
         return f'Generator preferences of {self.user}'

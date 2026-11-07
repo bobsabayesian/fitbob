@@ -39,6 +39,7 @@ from wger.dynamic_coach.models import (
     EquipmentProfile,
     UserGeneratorPreferences,
 )
+from wger.progression.services import KG_PER_LB
 from wger.dynamic_coach.services.session_builder import (
     GeneratorError,
     build_session,
@@ -121,7 +122,13 @@ class GenerateWorkoutView(APIView):
                         'slot': p.slot,
                         'sets': p.sets,
                         'target_reps': p.target_reps,
-                        'prescribed_weight_kg': p.weight,
+                        'prescribed_weight': p.weight,
+                        'weight_unit': p.unit,
+                        'prescribed_weight_kg': (
+                            None
+                            if p.weight is None
+                            else round(p.weight * (KG_PER_LB if p.unit == 'lb' else 1), 2)
+                        ),
                         'e1rm_basis_kg': round(p.e1rm, 1) if p.e1rm is not None else None,
                     }
                     for p in planned

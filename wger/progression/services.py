@@ -36,6 +36,7 @@ from django.utils import timezone
 from wger.manager.consts import (
     REP_UNIT_REPETITIONS,
     WEIGHT_UNIT_KG,
+    WEIGHT_UNIT_LB,
 )
 from wger.manager.models import WorkoutLog
 
@@ -43,8 +44,25 @@ from wger.manager.models import WorkoutLog
 DEFAULT_LOOKBACK_DAYS = 90
 DEFAULT_INCREMENT_KG = Decimal('2.5')
 COLD_START_REPS = 10
+KG_PER_LB = Decimal('0.45359237')
 MAX_RELIABLE_REPS = 12
 """Above this many reps the 1RM formulas become unreliable, so such sets are ignored"""
+
+
+def to_kg(weight, weight_unit_id) -> Decimal:
+    """Converts a logged weight to kg. Only kg and lb logs are understood."""
+    weight = Decimal(weight)
+    if weight_unit_id == WEIGHT_UNIT_LB:
+        return weight * KG_PER_LB
+    if weight_unit_id == WEIGHT_UNIT_KG:
+        return weight
+    raise ValueError(f'Unsupported weight unit {weight_unit_id}')
+
+
+def to_unit(weight_kg, unit: str) -> Decimal:
+    """Converts kg to the user's unit ('kg' or 'lb')"""
+    weight_kg = Decimal(weight_kg)
+    return weight_kg / KG_PER_LB if unit == 'lb' else weight_kg
 
 
 def epley_e1rm(weight, reps) -> Decimal:
@@ -91,30 +109,32 @@ class Prescription:
     exercise_id: int
     target_reps: int
     weight: Optional[Decimal]
-    """None on a cold start (no usable history)"""
+    """In ``unit``; None on a cold start (no usable history)"""
     e1rm: Optional[Decimal]
+    """Always kg"""
+    unit: str = 'kg'
 
 
 def best_e1rm(user, exercise_id, days=DEFAULT_LOOKBACK_DAYS, now=None) -> Optional[Decimal]:
     """
     Best estimated 1RM (kg) from the user's logged sets of this exercise in the
-    lookback window, or None. Only kg/repetition sets with a sane rep count count.
+    lookback window, or None. Only kg/lb repetition sets with a sane rep count count.
     """
     since = (now or timezone.now()) - timedelta(days=days)
     logs = WorkoutLog.objects.filter(
         user=user,
         exercise_id=exercise_id,
         date__gte=since,
-        weight_unit_id=WEIGHT_UNIT_KG,
+        weight_unit_id__in=(WEIGHT_UNIT_KG, WEIGHT_UNIT_LB),
         repetitions_unit_id=REP_UNIT_REPETITIONS,
         weight__gt=0,
         repetitions__gt=0,
         repetitions__lte=MAX_RELIABLE_REPS,
-    ).values_list('weight', 'repetitions')
+    ).values_list('weight', 'repetitions', 'weight_unit_id')
 
     best = None
-    for weight, reps in logs:
-        value = epley_e1rm(weight, reps)
+    for weight, reps, unit_id in logs:
+        value = epley_e1rm(to_kg(weight, unit_id), reps)
         if best is None or value > best:
             best = value
     return best
@@ -127,6 +147,7 @@ def prescribe(
     increment=DEFAULT_INCREMENT_KG,
     days=DEFAULT_LOOKBACK_DAYS,
     now=None,
+    unit='kg',
 ) -> Prescription:
     """
     Working weight for ``target_reps`` based on recent history. With no history the
@@ -134,6 +155,8 @@ def prescribe(
     """
     e1rm = best_e1rm(user, exercise_id, days=days, now=now)
     if e1rm is None:
-        return Prescription(exercise_id, target_reps, None, None)
-    weight = round_to_increment(weight_for_reps(e1rm, target_reps), increment)
-    return Prescription(exercise_id, target_reps, weight, e1rm)
+        return Prescription(exercise_id, target_reps, None, None, unit)
+    raw = to_unit(weight_for_reps(e1rm, target_reps), unit)
+    return Prescription(
+        exercise_id, target_reps, round_to_increment(raw, increment), e1rm, unit
+    )

@@ -45,6 +45,10 @@ from wger.exercises.models import (
     Equipment,
     Exercise,
 )
+from wger.manager.consts import (
+    WEIGHT_UNIT_KG,
+    WEIGHT_UNIT_LB,
+)
 from wger.manager.models import (
     Day,
     RepetitionsConfig,
@@ -56,6 +60,7 @@ from wger.manager.models import (
 )
 from wger.progression.services import (
     COLD_START_REPS,
+    KG_PER_LB,
     prescribe,
 )
 
@@ -101,11 +106,27 @@ class PlannedExercise:
     sets: int
     target_reps: int
     weight: Optional[Decimal]
+    """In the user's weight unit, see ``unit``"""
     e1rm: Optional[Decimal]
+    """Always kg"""
+    unit: str = 'kg'
 
     @property
     def name(self) -> str:
         return self.exercise.get_translation().name
+
+
+def weight_unit_of(user) -> str:
+    """'kg' or 'lb', from the user's profile"""
+    profile = getattr(user, 'userprofile', None)
+    return 'lb' if profile is not None and profile.weight_unit == 'lb' else 'kg'
+
+
+def rounding_increment(preferences, unit: str) -> Decimal:
+    """Smallest load step in the user's unit: their setting, else 2.5 kg or 5 lb"""
+    if preferences is not None and preferences.rounding_increment:
+        return Decimal(preferences.rounding_increment)
+    return Decimal('5') if unit == 'lb' else Decimal('2.5')
 
 
 def exercise_count(duration_min: int) -> int:
@@ -257,7 +278,8 @@ def build_session(
     if not pool:
         raise GeneratorError('No exercises match this split, equipment profile and exclusions.')
 
-    increment = preferences.rounding_increment_kg if preferences else Decimal('2.5')
+    unit = weight_unit_of(user)
+    increment = rounding_increment(preferences, unit)
     chosen = select_exercises(pool, split_key, freshness, exercise_count(duration_min), rng)
 
     planned = []
@@ -266,11 +288,11 @@ def build_session(
         sets, reps = TIERS[tier]
         if duration_min < 45 and sets > 3:
             sets = 3
-        result = prescribe(user, exercise.pk, reps, increment=increment)
+        result = prescribe(user, exercise.pk, reps, increment=increment, unit=unit)
         if result.weight is None:
             reps = COLD_START_REPS
         planned.append(
-            PlannedExercise(exercise, slot, tier, sets, reps, result.weight, result.e1rm)
+            PlannedExercise(exercise, slot, tier, sets, reps, result.weight, result.e1rm, unit)
         )
     return split_key, planned
 
@@ -289,7 +311,12 @@ def save_routine(user, planned: list[PlannedExercise], split_key: str, name: str
     day = Day.objects.create(routine=routine, name=split_key.replace('_', ' ').title(), order=1)
     for item in planned:
         slot = Slot.objects.create(day=day, order=item.slot)
-        entry = SlotEntry.objects.create(slot=slot, exercise=item.exercise, order=1)
+        entry = SlotEntry.objects.create(
+            slot=slot,
+            exercise=item.exercise,
+            order=1,
+            weight_unit_id=WEIGHT_UNIT_LB if item.unit == 'lb' else WEIGHT_UNIT_KG,
+        )
         SetsConfig.objects.create(slot_entry=entry, iteration=1, value=item.sets)
         RepetitionsConfig.objects.create(slot_entry=entry, iteration=1, value=item.target_reps)
         if item.weight is not None:

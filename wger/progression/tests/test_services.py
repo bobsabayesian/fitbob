@@ -100,9 +100,12 @@ class PrescribeTestCase(WgerTestCase):
         self.log(80, 5)  # 93.33
         self.assertAlmostEqual(float(best_e1rm(self.user(), 1)), 93.333, places=2)
 
-    def test_ignores_old_other_unit_other_user_and_high_reps(self):
+    def test_pounds_are_converted(self):
+        self.log(100, 5, unit=WEIGHT_UNIT_LB)  # 45.36 kg x 5
+        self.assertAlmostEqual(float(best_e1rm(self.user(), 1)), 45.359 * (1 + 5 / 30), places=2)
+
+    def test_ignores_old_other_user_and_high_reps(self):
         self.log(200, 5, days_ago=120)
-        self.log(200, 5, unit=WEIGHT_UNIT_LB)
         self.log(200, 5, user_id=2)
         self.assertEqual(WorkoutLog.objects.filter(user_id=2).count(), 1)
         self.log(50, 30)

@@ -45,6 +45,7 @@ from wger.exercises.models import (
 from wger.manager.consts import (
     REP_UNIT_REPETITIONS,
     WEIGHT_UNIT_KG,
+    WEIGHT_UNIT_LB,
 )
 from wger.manager.models import (
     Routine,
@@ -93,7 +94,7 @@ class GeneratorBase(WgerTestCase):
         Translation.objects.create(exercise=exercise, language=self.language, name=name)
         return exercise
 
-    def log_sets(self, exercise, n, weight, reps, hours_ago=0):
+    def log_sets(self, exercise, n, weight, reps, hours_ago=0, unit=WEIGHT_UNIT_KG):
         routine = Routine.objects.filter(user=self.user).first()
         for _ in range(n):
             WorkoutLog.objects.create(
@@ -102,7 +103,7 @@ class GeneratorBase(WgerTestCase):
                 exercise=exercise,
                 weight=weight,
                 repetitions=reps,
-                weight_unit_id=WEIGHT_UNIT_KG,
+                weight_unit_id=unit,
                 repetitions_unit_id=REP_UNIT_REPETITIONS,
                 date=timezone.now() - timedelta(hours=hours_ago),
             )
@@ -201,12 +202,48 @@ class SessionBuilderTestCase(GeneratorBase):
 
     def test_rounding_preference(self):
         UserGeneratorPreferences.objects.create(
-            user=self.user, rounding_increment_kg=Decimal('5')
+            user=self.user, rounding_increment=Decimal('5')
         )
         self.log_sets(self.bench, 1, 82, 8, hours_ago=24 * 6)
         _, planned = build_session(self.user, 45, 'push', rng=self.rng)
         bench = next(p for p in planned if p.name == 'Bench press')
         self.assertEqual(bench.weight % 5, 0)
+
+
+class PoundsTestCase(GeneratorBase):
+    def setUp(self):
+        super().setUp()
+        profile = self.user.userprofile
+        profile.weight_unit = 'lb'
+        profile.save()
+
+    def test_prescribes_in_pounds_with_a_5_lb_step(self):
+        # 100 lb x 8 -> e1RM 126.67 lb; for 8 reps that is 100 lb again
+        self.log_sets(self.bench, 3, 100, 8, hours_ago=24 * 6, unit=WEIGHT_UNIT_LB)
+        _, planned = build_session(self.user, 45, 'push', rng=self.rng)
+        bench = next(p for p in planned if p.name == 'Bench press')
+        self.assertEqual(bench.unit, 'lb')
+        self.assertEqual(bench.weight, Decimal('100'))
+        self.assertEqual(bench.weight % 5, 0)
+
+    def test_saved_routine_uses_pounds(self):
+        self.log_sets(self.bench, 3, 100, 8, hours_ago=24 * 6, unit=WEIGHT_UNIT_LB)
+        split, planned = build_session(self.user, 45, 'push', rng=self.rng)
+        _, day = save_routine(self.user, planned, split, 'lb')
+        entry = SlotEntry.objects.get(slot__day=day, exercise=self.bench)
+        self.assertEqual(entry.weight_unit_id, WEIGHT_UNIT_LB)
+        self.assertEqual(entry.weightconfig_set.get().value, Decimal('100'))
+
+    def test_api_reports_unit_and_kg(self):
+        self.log_sets(self.bench, 3, 100, 8, hours_ago=24 * 6, unit=WEIGHT_UNIT_LB)
+        self.client.login(username='test', password='testtest')
+        body = self.client.post(
+            reverse('generate-workout'), {'split': 'push'}, content_type='application/json'
+        ).json()
+        bench = next(e for e in body['exercises'] if e['name'] == 'Bench press')
+        self.assertEqual(bench['weight_unit'], 'lb')
+        self.assertEqual(float(bench['prescribed_weight']), 100)
+        self.assertAlmostEqual(float(bench['prescribed_weight_kg']), 45.36, places=2)
 
 
 class SaveRoutineTestCase(GeneratorBase):
@@ -254,7 +291,10 @@ class GeneratorApiTestCase(GeneratorBase):
         self.assertEqual(len(body['exercises']), 4)
         self.assertEqual(
             set(body['exercises'][0]),
-            {'exercise_id', 'name', 'slot', 'sets', 'target_reps', 'prescribed_weight_kg', 'e1rm_basis_kg'},
+            {
+                'exercise_id', 'name', 'slot', 'sets', 'target_reps', 'prescribed_weight',
+                'weight_unit', 'prescribed_weight_kg', 'e1rm_basis_kg',
+            },
         )
 
     def test_generate_and_save(self):

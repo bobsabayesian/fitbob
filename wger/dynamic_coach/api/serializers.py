@@ -47,7 +47,7 @@ class GeneratorPreferencesSerializer(serializers.ModelSerializer):
             'preferred_split',
             'excluded_exercises',
             'excluded_muscles',
-            'rounding_increment_kg',
+            'rounding_increment',
         ]
 
     def validate_default_equipment_profile(self, value):
@@ -60,8 +60,8 @@ class GeneratorPreferencesSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Must be between 10 and 180 minutes.')
         return value
 
-    def validate_rounding_increment_kg(self, value):
-        if value <= 0:
+    def validate_rounding_increment(self, value):
+        if value is not None and value <= 0:
             raise serializers.ValidationError('Must be positive.')
         return value
 
