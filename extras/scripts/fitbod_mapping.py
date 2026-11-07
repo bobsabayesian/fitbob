@@ -16,14 +16,25 @@ Columns of the output:
     wger_name     name of that exercise, for reference
     confidence    exact | likely | weak | none
     alternatives  other candidates as "id:name" separated by " | "
+    category, primary, secondary, equipment
+                  guessed from the name for rows with action "create" (muscles and
+                  equipment separated by ";"); edit them, they decide what the
+                  generator may pick
 """
 
 # Standard Library
 import csv
 import difflib
+import importlib.util
 import re
 import sys
 from collections import Counter
+from pathlib import Path
+
+_TAGS = Path(__file__).resolve().parents[2] / 'wger' / 'dynamic_coach' / 'fitbod' / 'tags.py'
+_spec = importlib.util.spec_from_file_location('fitbod_tags', _TAGS)
+fitbod_tags = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(fitbod_tags)
 
 NAMES_SQL = (
     "select t.exercise_id, t.name, 'name' from exercises_translation t "
@@ -94,7 +105,8 @@ def main(export_path, names_path):
 
     writer = csv.writer(sys.stdout)
     writer.writerow(
-        ['action', 'fitbod_name', 'sets', 'wger_id', 'wger_name', 'confidence', 'alternatives']
+        ['action', 'fitbod_name', 'sets', 'wger_id', 'wger_name', 'confidence', 'alternatives',
+         'category', 'primary', 'secondary', 'equipment']
     )
     for name, sets in counts.most_common():
         mine = tokens(name)
@@ -121,11 +133,16 @@ def main(export_path, names_path):
             confidence, action = 'weak', 'create'
         else:
             confidence, action = 'none', 'create'
+        tags = fitbod_tags.infer_tags(name) if action == 'create' else None
         writer.writerow([
             action, name, sets,
             top[1] if action == 'map' else '', top[2] if action == 'map' else '',
             confidence,
             ' | '.join(f'{i}:{n}' for _, i, n in (best if action == 'create' else best[1:])),
+            tags.category if tags else '',
+            ';'.join(tags.primary) if tags else '',
+            ';'.join(tags.secondary) if tags else '',
+            ';'.join(tags.equipment) if tags else '',
         ])
 
 
