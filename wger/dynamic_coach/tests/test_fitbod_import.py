@@ -70,6 +70,9 @@ class TagsTestCase(WgerTestCase):
         self.assertEqual(infer_tags('Cycling').category, 'cardio')
         self.assertEqual(infer_tags('Push Up').equipment, ['none (bodyweight exercise)'])
         self.assertEqual(infer_tags('Handle Band Rear Deltoid Fly').primary, ['shoulders'])
+        # isolation work is not a compound lift, dips and close-grip presses are
+        self.assertEqual(infer_tags('Cable Rope Tricep Extension').secondary, [])
+        self.assertEqual(infer_tags('Close-Grip Bench Press').secondary, ['shoulders', 'chest'])
 
 
 class UnitsTestCase(WgerTestCase):

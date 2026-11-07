@@ -81,7 +81,8 @@ RULES = [
     # rear delts and upper back (before chest, they share the word fly)
     (r'face pull|rear delt|reverse fly|deltoid fly|back fly|rear deltoid|shoulder squeeze|y raise|y-raise|w raise|scaption', 'shoulders', ['shoulders'], ['traps']),
     # chest
-    (r'tricep|triceps|skullcrusher|skull crusher|pushdown|push down|close.grip bench|jm press|dip\b|bench dip|kickback', 'arms', ['triceps'], ['shoulders', 'chest']),
+    (r'close.grip bench|jm press|dip\b|bench dip|tricep push up|diamond', 'arms', ['triceps'], ['shoulders', 'chest']),
+    (r'tricep|triceps|skullcrusher|skull crusher|pushdown|push down|kickback', 'arms', ['triceps'], []),
     (r'bench press|chest press|push up|pushup|fly\b|flye|pec deck|crossover|cross over|chest|svend|floor press|hammerstrength', 'chest', ['chest'], ['triceps', 'shoulders']),
     # shoulders
     (r'shrug|upright row', 'back', ['traps'], ['shoulders']),
