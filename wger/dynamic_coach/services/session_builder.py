@@ -37,6 +37,7 @@ from django.db import transaction
 # wger
 from wger.dynamic_coach.models import (
     EquipmentProfile,
+    LibraryEntry,
     SplitChoices,
     UserGeneratorPreferences,
 )
@@ -175,7 +176,15 @@ def rank_splits(split, preferences, freshness_by_muscle: dict) -> list[str]:
     return sorted(candidates, key=mean_freshness, reverse=True)
 
 
-def candidate_pool(split_key, equipment_ids, bodyweight_ids, excluded_exercises, excluded_muscles):
+def candidate_pool(
+    split_key,
+    equipment_ids,
+    bodyweight_ids,
+    excluded_exercises,
+    excluded_muscles,
+    library_ids=None,
+):
+    """Matching exercises. ``library_ids`` restricts the pool when given and not empty."""
     targets = SPLITS[split_key]
     allowed = set(equipment_ids) | set(bodyweight_ids)
     pool = []
@@ -188,6 +197,8 @@ def candidate_pool(split_key, equipment_ids, bodyweight_ids, excluded_exercises,
         .distinct()
         .order_by('pk')
     )
+    if library_ids:
+        queryset = queryset.filter(pk__in=library_ids)
     for exercise in queryset:
         if {e.pk for e in exercise.equipment.all()} - allowed:
             continue
@@ -266,12 +277,18 @@ def build_session(
         list(preferences.excluded_muscles.values_list('pk', flat=True)) if preferences else []
     )
     equipment_ids = list(profile.equipment.values_list('pk', flat=True))
+    library_ids = list(LibraryEntry.objects.filter(user=user).values_list('exercise_id', flat=True))
 
     pool = []
     split_key = None
     for split_key in rank_splits(split, preferences, freshness):
         pool = candidate_pool(
-            split_key, equipment_ids, bodyweight, excluded_exercises, excluded_muscles
+            split_key,
+            equipment_ids,
+            bodyweight,
+            excluded_exercises,
+            excluded_muscles,
+            library_ids,
         )
         if pool:
             break

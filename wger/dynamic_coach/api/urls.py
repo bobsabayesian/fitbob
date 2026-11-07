@@ -26,6 +26,7 @@ from wger.dynamic_coach.api import views
 
 
 router = routers.DefaultRouter()
+router.register(r'library', views.LibraryViewSet, basename='library')
 router.register(r'equipment-profile', views.EquipmentProfileViewSet, basename='equipment-profile')
 
 urlpatterns = [

@@ -27,6 +27,7 @@ from wger.core.models import Language
 from wger.core.tests.base_testcase import WgerTestCase
 from wger.dynamic_coach.models import (
     EquipmentProfile,
+    LibraryEntry,
     UserGeneratorPreferences,
 )
 from wger.dynamic_coach.services.session_builder import (
@@ -210,6 +211,45 @@ class SessionBuilderTestCase(GeneratorBase):
         self.assertEqual(bench.weight % 5, 0)
 
 
+class LibraryTestCase(GeneratorBase):
+    def test_empty_library_means_whole_catalogue(self):
+        _, planned = build_session(self.user, 60, 'push', rng=self.rng)
+        self.assertEqual(len(planned), 5)
+
+    def test_library_restricts_the_pool(self):
+        for exercise in (self.bench, self.raise_):
+            LibraryEntry.objects.create(user=self.user, exercise=exercise)
+        _, planned = build_session(self.user, 60, 'push', rng=self.rng)
+        self.assertEqual(set(self.names(planned)), {'Bench press', 'Lateral raise'})
+
+    def test_library_of_other_user_is_ignored(self):
+        other = User.objects.exclude(pk=self.user.pk).first()
+        LibraryEntry.objects.create(user=other, exercise=self.bench)
+        _, planned = build_session(self.user, 60, 'push', rng=self.rng)
+        self.assertEqual(len(planned), 5)
+
+    def test_library_api(self):
+        self.client.login(username='test', password='testtest')
+        url = reverse('library-list')
+        created = self.client.post(url, {'exercise': self.bench.pk}, content_type='application/json')
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.json()['name'], 'Bench press')
+        again = self.client.post(url, {'exercise': self.bench.pk}, content_type='application/json')
+        self.assertEqual(again.status_code, 400)
+        listing = self.client.get(url).json()
+        results = listing['results'] if isinstance(listing, dict) else listing
+        self.assertEqual(len(results), 1)
+        removed = self.client.delete(reverse('library-detail', args=[results[0]['id']]))
+        self.assertEqual(removed.status_code, 204)
+        self.assertEqual(LibraryEntry.objects.count(), 0)
+
+    def test_cannot_delete_another_users_entry(self):
+        other = User.objects.exclude(pk=self.user.pk).first()
+        entry = LibraryEntry.objects.create(user=other, exercise=self.bench)
+        self.client.login(username='test', password='testtest')
+        self.assertEqual(self.client.delete(reverse('library-detail', args=[entry.pk])).status_code, 404)
+
+
 class PoundsTestCase(GeneratorBase):
     def setUp(self):
         super().setUp()
@@ -242,8 +282,12 @@ class PoundsTestCase(GeneratorBase):
         ).json()
         bench = next(e for e in body['exercises'] if e['name'] == 'Bench press')
         self.assertEqual(bench['weight_unit'], 'lb')
-        self.assertEqual(float(bench['prescribed_weight']), 100)
-        self.assertAlmostEqual(float(bench['prescribed_weight_kg']), 45.36, places=2)
+        # the slot (and so the rep target) is random, the load follows from it
+        expected_lb = 5 * round(100 * (1 + 8 / 30) / (1 + bench['target_reps'] / 30) / 5)
+        self.assertEqual(float(bench['prescribed_weight']), expected_lb)
+        self.assertAlmostEqual(
+            float(bench['prescribed_weight_kg']), expected_lb * 0.45359237, places=2
+        )
 
 
 class SaveRoutineTestCase(GeneratorBase):

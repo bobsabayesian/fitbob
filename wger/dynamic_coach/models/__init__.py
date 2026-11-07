@@ -17,3 +17,4 @@ from wger.dynamic_coach.models.preferences import (  # noqa: F401
     SplitChoices,
     UserGeneratorPreferences,
 )
+from wger.dynamic_coach.models.library import LibraryEntry  # noqa: F401

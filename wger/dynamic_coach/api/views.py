@@ -21,6 +21,7 @@ from django.utils import timezone
 # Third Party
 from rest_framework import (
     generics,
+    mixins,
     status,
     viewsets,
 )
@@ -34,9 +35,11 @@ from wger.dynamic_coach.api.serializers import (
     EquipmentProfileSerializer,
     GenerateWorkoutSerializer,
     GeneratorPreferencesSerializer,
+    LibraryEntrySerializer,
 )
 from wger.dynamic_coach.models import (
     EquipmentProfile,
+    LibraryEntry,
     UserGeneratorPreferences,
 )
 from wger.progression.services import KG_PER_LB
@@ -66,6 +69,24 @@ class EquipmentProfileViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return EquipmentProfile.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class LibraryViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """The exercises in the user's own library: add, remove, list"""
+
+    serializer_class = LibraryEntrySerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        return LibraryEntry.objects.filter(user=self.request.user).select_related('exercise')
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

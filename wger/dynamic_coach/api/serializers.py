@@ -18,6 +18,7 @@ from rest_framework import serializers
 # wger
 from wger.dynamic_coach.models import (
     EquipmentProfile,
+    LibraryEntry,
     SplitChoices,
     UserGeneratorPreferences,
 )
@@ -76,3 +77,20 @@ class GenerateWorkoutSerializer(serializers.Serializer):
     seed = serializers.IntegerField(required=False, min_value=0, max_value=2**31 - 1)
     """Repeats a previous result: same seed and same data give the same session"""
     routine_name = serializers.CharField(required=False, allow_blank=True, max_length=25)
+
+
+class LibraryEntrySerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LibraryEntry
+        fields = ['id', 'exercise', 'name']
+
+    def get_name(self, obj):
+        return obj.exercise.get_translation().name
+
+    def validate_exercise(self, value):
+        user = self.context['request'].user
+        if LibraryEntry.objects.filter(user=user, exercise=value).exists():
+            raise serializers.ValidationError('Already in your library.')
+        return value
