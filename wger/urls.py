@@ -327,6 +327,7 @@ urlpatterns += [
         core_api_views.VerifyEmailView.as_view(),
         name='userprofile-verify-email',
     ),
+    path('api/v2/progression/', include('wger.progression.api.urls')),
     path('api/v2/coach/', include('wger.dynamic_coach.api.urls')),
     path('api/v2/', include(router.urls)),
     path('api/v2/token/refresh', TokenRefreshView.as_view(), name='token_refresh'),

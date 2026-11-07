@@ -32,7 +32,10 @@ from wger.exercises.models import (
     Exercise,
     Muscle,
 )
-from wger.manager.models import WorkoutLog
+from wger.manager.models import (
+    Routine,
+    WorkoutLog,
+)
 
 
 class FreshnessMathTestCase(WgerTestCase):
@@ -89,7 +92,7 @@ class FreshnessFromLogsTestCase(WgerTestCase):
         for _ in range(n):
             WorkoutLog.objects.create(
                 user_id=user_id,
-                routine_id=1,
+                routine=Routine.objects.filter(user_id=user_id).first(),
                 exercise=self.exercise,
                 weight=50,
                 repetitions=8,
@@ -108,6 +111,7 @@ class FreshnessFromLogsTestCase(WgerTestCase):
 
     def test_other_users_logs_ignored(self):
         self.log_sets(12, user_id=2)
+        self.assertEqual(WorkoutLog.objects.filter(user_id=2).count(), 12)
         data = self.by_id(muscle_freshness(self.user))
         self.assertEqual(data[self.primary.pk]['freshness_pct'], 100.0)
 

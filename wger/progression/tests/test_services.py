@@ -26,7 +26,10 @@ from wger.manager.consts import (
     WEIGHT_UNIT_KG,
     WEIGHT_UNIT_LB,
 )
-from wger.manager.models import WorkoutLog
+from wger.manager.models import (
+    Routine,
+    WorkoutLog,
+)
 from wger.progression.services import (
     best_e1rm,
     brzycki_e1rm,
@@ -73,7 +76,7 @@ class PrescribeTestCase(WgerTestCase):
     def log(self, weight, reps, days_ago=1, unit=WEIGHT_UNIT_KG, user_id=1):
         WorkoutLog.objects.create(
             user_id=user_id,
-            routine_id=1,
+            routine=Routine.objects.filter(user_id=user_id).first(),
             exercise_id=1,
             weight=weight,
             repetitions=reps,
@@ -101,6 +104,7 @@ class PrescribeTestCase(WgerTestCase):
         self.log(200, 5, days_ago=120)
         self.log(200, 5, unit=WEIGHT_UNIT_LB)
         self.log(200, 5, user_id=2)
+        self.assertEqual(WorkoutLog.objects.filter(user_id=2).count(), 1)
         self.log(50, 30)
         self.assertIsNone(best_e1rm(self.user(), 1))
 
