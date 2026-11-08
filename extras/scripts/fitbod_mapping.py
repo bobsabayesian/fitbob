@@ -4,9 +4,14 @@ Suggest a mapping from Fitbod export exercise names to wger exercises.
 
 Writes a CSV for hand review. Nothing here touches the database.
 
+Optionally pass --catalogue DIR (a clone of the openGym repo's catalogue folder, the one
+that holds exercises/) to take muscles, equipment and category of unmatched exercises
+from its plain-text entries instead of guessing from the name. Only exercises/*.json is
+read; the media is never opened.
+
 Usage:
     docker exec wger-db psql -U wger -d wger -At -F$'\\t' -c "<see NAMES_SQL below>" > wger_names.tsv
-    extras/scripts/fitbod_mapping.py WorkoutExport.csv wger_names.tsv > mapping.csv
+    extras/scripts/fitbod_mapping.py [--catalogue DIR] WorkoutExport.csv wger_names.tsv > mapping.csv
 
 Columns of the output:
     action        map | create | skip   (edit this). Only exact name matches are
@@ -22,6 +27,7 @@ Columns of the output:
                   guessed from the name for rows with action "create" (muscles and
                   equipment separated by ";"); edit them, they decide what the
                   generator may pick
+    tag_source    where those tags came from: catalogue:<id> or "guessed from name"
 """
 
 # Standard Library
@@ -36,7 +42,12 @@ from pathlib import Path
 _TAGS = Path(__file__).resolve().parents[2] / 'wger' / 'dynamic_coach' / 'fitbod' / 'tags.py'
 _spec = importlib.util.spec_from_file_location('fitbod_tags', _TAGS)
 fitbod_tags = importlib.util.module_from_spec(_spec)
+sys.modules['fitbod_tags'] = fitbod_tags
 _spec.loader.exec_module(fitbod_tags)
+_spec = importlib.util.spec_from_file_location('fitbod_catalogue', _TAGS.with_name('catalogue.py'))
+fitbod_catalogue = importlib.util.module_from_spec(_spec)
+sys.modules['fitbod_catalogue'] = fitbod_catalogue
+_spec.loader.exec_module(fitbod_catalogue)
 
 NAMES_SQL = (
     "select t.exercise_id, t.name, 'name' from exercises_translation t "
@@ -93,7 +104,8 @@ def score(a_tokens, b_tokens):
     return value
 
 
-def main(export_path, names_path):
+def main(export_path, names_path, catalogue_dir=None):
+    entries = fitbod_catalogue.load(catalogue_dir) if catalogue_dir else {}
     counts = Counter()
     with open(export_path, newline='') as handle:
         for row in csv.DictReader(handle):
@@ -108,7 +120,7 @@ def main(export_path, names_path):
     writer = csv.writer(sys.stdout)
     writer.writerow(
         ['action', 'fitbod_name', 'sets', 'wger_id', 'wger_name', 'confidence', 'alternatives',
-         'category', 'primary', 'secondary', 'equipment']
+         'category', 'primary', 'secondary', 'equipment', 'tag_source']
     )
     for name, sets in counts.most_common():
         mine = tokens(name)
@@ -136,7 +148,11 @@ def main(export_path, names_path):
             confidence, action = 'weak', 'create'
         else:
             confidence, action = 'none', 'create'
-        tags = fitbod_tags.infer_tags(name) if action == 'create' else None
+        tags = source = None
+        if action == 'create':
+            match = fitbod_catalogue.find(entries, name) if entries else None
+            tags = fitbod_catalogue.to_tags(match) if match else fitbod_tags.infer_tags(name)
+            source = f'catalogue:{match.id}' if match else 'guessed from name'
         writer.writerow([
             action, name, sets,
             top[1] if action == 'map' else '', top[2] if action == 'map' else '',
@@ -146,10 +162,15 @@ def main(export_path, names_path):
             ';'.join(tags.primary) if tags else '',
             ';'.join(tags.secondary) if tags else '',
             ';'.join(tags.equipment) if tags else '',
+            source or '',
         ])
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
+    args = sys.argv[1:]
+    catalogue_dir = None
+    if args[:1] == ['--catalogue'] and len(args) >= 2:
+        catalogue_dir, args = args[1], args[2:]
+    if len(args) != 2:
         sys.exit(__doc__)
-    main(sys.argv[1], sys.argv[2])
+    main(args[0], args[1], catalogue_dir)
